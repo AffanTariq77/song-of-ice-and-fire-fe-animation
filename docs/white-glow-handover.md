@@ -122,10 +122,29 @@ With the footer split into its own `/rats` iframe (absolutely positioned,
   simple compositing hiccup; whatever's happening, it's stable/reproducible
   on every paint, not a one-time stuck frame.
 
+## Round 4 (cross-origin OOPIF compositing theory)
+
+A very well-reasoned hypothesis from independent debugging (both a user
+session and this one converged on it): cross-origin iframes run in a
+separate Chromium renderer process (Site Isolation / out-of-process iframes),
+and WebGL alpha-transparency compositing back into the parent page across
+that process boundary has real, documented Chromium limitations. This would
+explain why it only reproduces on the real host page's heavier compositing
+load and never on minimal test pages, even though both are cross-origin.
+
+Tested directly: added a Next.js rewrite (`/ambient-layer/:path* →
+song-of-ice-and-fire-fe-animation.vercel.app/:path*`) so the iframe is fully
+same-origin with the host page, eliminating the OOPIF path entirely.
+Confirmed same-origin via `new URL(iframe.src).origin === location.origin`.
+**Identical glow, byte-for-byte same shape.** This is now also ruled out.
+Reverted (see commit reverting "rats fix" in song-of-ice-and-fire-fe) since
+it added a proxy hop for no benefit.
+
 At this point every hypothesis testable via scripted browser automation
-(Playwright, real GPU Chrome, live console, CDP) has been exhausted across
-three rounds. This is genuinely at the point where it needs a human (or an
-agent with interactive DevTools) looking at the actual **Layers** panel.
+(Playwright, real GPU Chrome, live console, CDP, and now same-origin
+elimination) has been exhausted across four rounds. This is genuinely at the
+point where it needs a human (or an agent with interactive DevTools) looking
+at the actual **Layers** panel.
 
 ## Where things are
 
