@@ -1,3 +1,62 @@
+# RESOLVED
+
+**Cause:** `color-scheme`. The host page (`song-of-ice-and-fire-fe`) sets
+`color-scheme: dark` on its `<html>` (compiled into its stylesheet from
+`globals.css`). A color-scheme does not inherit across a frame boundary, so this
+app's document resolved to `light`, and Chrome filled the frame's base background
+with the light canvas colour -- opaque white -- *underneath* this document.
+`html, body { background: transparent }` cannot win against that, because the fill
+sits beneath the document rather than being part of it.
+
+The soft-edged oval shape is the host's own vignette: `GrainOverlay`'s
+`radial-gradient(ellipse at center, transparent 45%, rgba(5,7,13,0.65) 100%)`
+darkens the edges of that white surface and leaves a centred ellipse roughly 55%
+of the viewport wide -- ~880px at 1600px, matching the "800-1000px" that was
+measured. The short footer ledge has no room for the falloff, so it reads as a
+uniformly white strip.
+
+**Fix:** one line in `src/app/globals.css`:
+
+```css
+html {
+  color-scheme: dark;
+}
+```
+
+**How it was finally reproduced.** Contrary to the note below, this *does*
+reproduce in headless Chromium -- what never reproduced was the comparison that
+had been run. The decisive test is an A/B with the iframe held constant:
+
+| host page | iframe | hero mean luma |
+| --- | --- | --- |
+| minimal dark page | transparent WebGL child | 8.3 (transparent, correct) |
+| real site | same transparent WebGL child | 240.1 (opaque white) |
+| real site | `about:blank` | 240.2 (opaque white) |
+| minimal page + `html{color-scheme:dark}` only | same child | 255.0 (opaque white) |
+| real site | child with `color-scheme: dark` | 55.7 (transparent, correct) |
+
+That `about:blank` reproduces it is the tell: no WebGL, no Three.js, no content of
+any kind. And the fourth row isolates the trigger to that single declaration --
+nothing else from the host page is needed.
+
+Bisection of the child's own `color-scheme`: `dark` and `only dark` composite
+transparently; omitting it, `normal`, and `light` all reproduce.
+
+**Why every earlier hypothesis came back negative.** They were all testing the
+iframe's *contents* or the host's *paint*, and the bug is in neither -- it is the
+frame surface's base background, which sits under the child document and is
+decided before either one paints. Scene content, `antialias`, `setClearAlpha(0)`,
+`premultipliedAlpha`, context loss, same-origin vs OOPIF, host filters and blend
+modes are all genuinely irrelevant, exactly as those rounds concluded. The
+minimal-test-page result was the real clue and was read backwards: minimal pages
+do not reproduce it because minimal pages do not set `color-scheme: dark`.
+
+Note that the fixes made along the way are still worth keeping on their own
+merits -- the context-restore handler, the bounding-box sizing, the `/rats`
+split. They just were not this.
+
+---
+
 # Handover: white-glow bug over the main site's hero/footer
 
 ## Project context
