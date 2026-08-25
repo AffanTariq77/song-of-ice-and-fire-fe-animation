@@ -22,7 +22,12 @@ export default function AmbientCreaturesScene() {
       aria-hidden="true"
       style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}
     >
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} gl={{ alpha: true, antialias: true }} dpr={[1, 1.5]}>
+      <Canvas
+        camera={{ position: [0, 0, 10], fov: 50 }}
+        gl={{ alpha: true, antialias: true, premultipliedAlpha: false }}
+        dpr={[1, 1.5]}
+        onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
+      >
         <ambientLight intensity={1.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
 
