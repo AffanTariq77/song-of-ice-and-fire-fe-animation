@@ -55,30 +55,89 @@ Confirmed GPU backend on the machine this was investigated on:
   unambiguously coming from the iframe's presence, not a pre-existing host
   bug.
 
+## Round 2 (after the /rats route split)
+
+A live console check turned up `THREE.WebGLRenderer: Context Lost.` — a real
+event, not speculation. Three.js auto-restores a lost context (calls
+`preventDefault()` internally) but restoration doesn't re-run Canvas's
+`onCreated`, so the explicit transparent-clear call was only ever applied
+once and silently reverted on restore. Fixed by re-applying
+`gl.setClearAlpha(0)` on a `webglcontextrestored` listener
+(`AmbientCreaturesScene.tsx` / `RatsScene.tsx`).
+
+**This did not fix the glow.** A follow-up repro (same real-GPU method, same
+live site) showed the glow again with **no** "Context Lost" in the console at
+all that time. So the context-loss event was real and worth fixing regardless
+(it's a legitimate robustness gap), but it is not this bug's cause — or at
+least not the only one.
+
+Two more hypotheses tested and ruled out in this round:
+- **Two simultaneous iframes** (the sitewide crow/dragon one plus the new
+  footer-scoped rats one) — removed the rats iframe via
+  `element.remove()` live, glow unchanged. Not an interaction between them;
+  the sitewide iframe alone still shows it.
+- **`PageTransition.tsx`'s framer-motion wrapper** (`motion.div` with
+  `opacity`/`y` animation) leaving a lingering `transform`/`will-change` that
+  promotes a GPU layer next to the iframe — checked computed style ~4s after
+  load: `transform: none`, `will-change: auto`. Framer Motion had already
+  cleaned it up by the time the glow is visible. Not it.
+
 ## What this means
 
-The bug requires **both** (a) an R3F `<Canvas>` mounted in the iframe — any
-content, even empty — **and** (b) something specific to the real host page
-that a minimal test page doesn't have. CSS filters/blend-modes (the most
-obvious candidates) are ruled out. That leaves things like: `will-change` /
-`transform: translate3d(...)` elsewhere on the page (there are a few in
-`globals.css`, in the fog-drift animation, not yet tested with early
-neutralization), the sheer number of stacked `position: fixed` full-viewport
-layers on this site (AmbientBackground, SvgFilters, GrainOverlay, Navbar, this
-iframe — five-plus fixed layers is unusual), or genuinely something in Chrome's
-GPU compositing layer promotion that needs the actual DevTools **Layers** or
-**Paint Profiler** panel (not CDP scripted access — a `LayerTree.enable` CDP
-attempt during this investigation returned zero layers, possibly needs a
-different attach sequence) to see which layer is doing this and why.
+Every content-level, config-level, and now several layer-promotion-adjacent
+hypotheses are exhausted. The bug requires **both** (a) an R3F `<Canvas>`
+mounted in the iframe — any content, even empty — **and** (b) something
+specific to the real host page that no minimal test page reproduces. This is
+genuinely at the point where scripted browser automation has diminishing
+returns; it needs a human (or an agent with real interactive DevTools access)
+to open the actual **Layers** panel (Chrome menu → More Tools → Layers, or
+`Cmd+Shift+P` → "Show Layers") on `song-of-ice-and-fire-3l4u.vercel.app` with
+the iframe present, find the compositing layer at the hero's screen position,
+and read its actual compositing reasons directly — a `LayerTree.enable` CDP
+scripted attempt during this investigation returned zero layers, so scripted
+CDP access alone hasn't been sufficient either.
+
+## Round 3 (footer iframe isolation + forced reflow)
+
+With the footer split into its own `/rats` iframe (absolutely positioned,
+~130px tall, separate from the sitewide fixed one), two more tests:
+
+- **Removed the sitewide iframe, kept only the footer one** — the hero
+  rendered perfectly (no glow at all) while the footer iframe was scrolled
+  out of view. Scrolling down to where the footer iframe actually is showed
+  the *same* white glow, but filling almost the entire short strip rather
+  than reading as an obviously-radial shape. This is very likely the same
+  underlying phenomenon just viewed through a much shorter window — if it's
+  genuinely a radial gradient sized independent of the iframe's own pixel
+  height, a 130px-tall strip wouldn't have room to show the soft fade-to-
+  transparent edges the way the full-viewport sitewide case does, so it
+  reads as "the whole strip is white" even though it's probably the same
+  shape. Not confirmed either way, but not a strong signal of a *different*
+  bug — both iframes show it independently, so it's not an interaction
+  between them (already ruled out in round 2) and isn't tied to iframe size
+  either.
+- **Forced a full reflow/recomposite** (`iframe.style.display = 'none'`,
+  forced layout via `offsetHeight` read, restore `display`) — no change.
+  Rules out "Chrome painted a stale/blank frame and never repainted" as a
+  simple compositing hiccup; whatever's happening, it's stable/reproducible
+  on every paint, not a one-time stuck frame.
+
+At this point every hypothesis testable via scripted browser automation
+(Playwright, real GPU Chrome, live console, CDP) has been exhausted across
+three rounds. This is genuinely at the point where it needs a human (or an
+agent with interactive DevTools) looking at the actual **Layers** panel.
 
 ## Where things are
 
-- Currently deployed: `antialias: false`, explicit `setClearColor`, GLTF rat
-  (grounded via bounding-box offset), all in
-  `src/components/AmbientCreaturesScene.tsx`.
-- The glow is very likely still present. This doc exists because further
-  progress needs actual visual GPU debugging tools this environment doesn't
-  have — open the real DevTools **Layers** panel (Chrome menu → More Tools →
-  Layers, or `Cmd+Shift+P` → "Show Layers") on
-  `song-of-ice-and-fire-3l4u.vercel.app` with the iframe present, find the
-  layer at the hero's screen position, and check what's compositing it.
+- Currently deployed: `antialias: false`, `setClearAlpha(0)` re-applied on
+  context restore, GLTF rat split into its own `/rats` route (grounded via
+  bounding-box offset), crow/dragon sized via computed bounding box instead
+  of guessed scale multipliers — all real, verified fixes, independent of
+  the glow.
+- The glow is very likely still present on the sitewide crow/dragon layer.
+  Not yet re-tested against the footer-only `/rats` iframe specifically in
+  isolation (only tested "remove rats iframe, keep sitewide" — not the
+  reverse). Worth checking whether the footer-scoped iframe alone (smaller,
+  different camera distance, absolutely positioned instead of fixed) shows
+  the same glow or not — if it doesn't, that's a real, novel clue about what
+  differs between the two.
