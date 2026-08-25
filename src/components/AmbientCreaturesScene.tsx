@@ -2,25 +2,30 @@
 
 import { Canvas } from '@react-three/fiber';
 import { AmbientCreature } from './AmbientCreature';
-import { GltfRat } from './GltfRat';
 
 /**
- * The entire content of this standalone app: a transparent, full-viewport 3D
- * scene meant to be embedded via <iframe> into the main site, positioned as an
- * ambient overlay above page backgrounds and below content there. Isolated
- * into its own repo/deployment so its build graph (three.js + GLTFLoader) never
- * shares a build container with the main app's much larger one.
+ * The entire content of this standalone app's main route: the sitewide,
+ * full-viewport ambient layer — crow and dragon crossing the sky. Rats moved
+ * to the /rats route, embedded only over the footer on the host site instead
+ * of sitewide (see src/app/rats/page.tsx and RatsScene.tsx).
  *
- * Rats use the real GLTF model (small, grounded on their actual feet via a
- * computed bounding-box offset), several at once, scurrying both directions
- * along the bottom edge, some pausing mid-crossing on their idle clip before
- * continuing. Crow/dragon still use their GLTF models pending a follow-up pass.
+ * Isolated into its own repo/deployment so its build graph (three.js +
+ * GLTFLoader) never shares a build container with the main app's much
+ * larger one.
+ *
+ * Sizes are given as targetWidth (world units) rather than a raw scale
+ * multiplier — several of these GLB files bake a scale/rotation into a root
+ * node matrix that a naive raw-mesh-size estimate misses entirely, which is
+ * why the crow rendered far too small and the dragon was never seen at all
+ * despite "reasonable-looking" scale values. AmbientCreature now computes
+ * the model's actual rendered bounding box after load and derives the scale
+ * needed to hit targetWidth, so this isn't guesswork anymore.
  *
  * The white-glow bug tracked in docs/white-glow-handover.md turned out to be
  * a WebGL context loss: the live console showed "THREE.WebGLRenderer: Context
  * Lost." — three.js's default context-lost handling calls preventDefault() so
  * the browser auto-restores it, but restoration doesn't re-run onCreated, so
- * the explicit setClearColor below was only ever applied once and silently
+ * the explicit clear-alpha below was only ever applied once and silently
  * lost on restore. Re-applying it on 'webglcontextrestored' fixes that.
  */
 export default function AmbientCreaturesScene() {
@@ -45,7 +50,7 @@ export default function AmbientCreaturesScene() {
         <AmbientCreature
           url="/models/crow.glb"
           clipName="SKM_Crow|SKM_Crow|Crow_Fly"
-          scale={0.012}
+          targetWidth={1.3}
           y={0.16}
           duration={22}
           minDelay={18}
@@ -55,20 +60,13 @@ export default function AmbientCreaturesScene() {
         <AmbientCreature
           url="/models/dragon.glb"
           clipName="flying"
-          scale={0.05}
+          targetWidth={4.5}
           y={0.12}
           duration={46}
           minDelay={55}
           maxDelay={100}
           direction={-1}
         />
-
-        <GltfRat y={0.97} duration={10} minDelay={2} maxDelay={9} direction={1} scale={0.45} />
-        <GltfRat y={0.97} duration={9} minDelay={3} maxDelay={11} direction={-1} scale={0.4} />
-        <GltfRat y={0.97} duration={12} minDelay={4} maxDelay={13} direction={1} scale={0.5} />
-        <GltfRat y={0.97} duration={8} minDelay={5} maxDelay={15} direction={-1} scale={0.55} />
-        <GltfRat y={0.97} duration={11} minDelay={1} maxDelay={8} direction={1} scale={0.4} />
-        <GltfRat y={0.97} duration={10} minDelay={6} maxDelay={17} direction={-1} scale={0.45} />
       </Canvas>
     </div>
   );

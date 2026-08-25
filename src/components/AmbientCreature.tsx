@@ -7,8 +7,14 @@ import { useFrame, useThree } from '@react-three/fiber';
 export type AmbientCreatureProps = {
   url: string;
   clipName: string;
-  /** Multiplies the model's native size to a sane on-screen scale. */
-  scale: number;
+  /**
+   * Desired on-screen width in world units (viewport.width is ~15-17 at the
+   * default camera). Computed against the model's *actual* rendered bounding
+   * box at load time, not its raw mesh data — several of these models bake a
+   * scale/rotation into a root node matrix that raw accessor min/max ignores,
+   * which is why the old flat `scale` multiplier produced wildly wrong sizes.
+   */
+  targetWidth: number;
   /** Vertical position as a fraction of viewport height, 0 = top, 1 = bottom. */
   y: number;
   /** Seconds to cross from one side of the viewport to the other. */
@@ -31,14 +37,20 @@ function randomBetween(min: number, max: number) {
  * plain embedded-texture models and was blowing up Turbopack's build memory sitewide).
  */
 function useLoadedGltf(url: string) {
-  const [result, setResult] = useState<{ scene: THREE.Group; animations: THREE.AnimationClip[] } | null>(null);
+  const [result, setResult] = useState<{ scene: THREE.Group; animations: THREE.AnimationClip[]; scaleFactor: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     import('three/examples/jsm/loaders/GLTFLoader.js').then(({ GLTFLoader }) => {
       if (cancelled) return;
       new GLTFLoader().load(url, (gltf) => {
-        if (!cancelled) setResult({ scene: gltf.scene, animations: gltf.animations });
+        if (cancelled) return;
+        // Actual post-transform size — accounts for any scale/rotation baked
+        // into the model's own node hierarchy, unlike raw accessor min/max.
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const size = box.getSize(new THREE.Vector3());
+        const width = Math.max(size.x, size.z) || 1;
+        setResult({ scene: gltf.scene, animations: gltf.animations, scaleFactor: width });
       });
     });
     return () => {
@@ -49,7 +61,7 @@ function useLoadedGltf(url: string) {
   return result;
 }
 
-function CreatureModel({ url, clipName, scale, y, duration, direction, facingOffset = 0, onDone }: AmbientCreatureProps & { onDone: () => void }) {
+function CreatureModel({ url, clipName, targetWidth, y, duration, direction, facingOffset = 0, onDone }: AmbientCreatureProps & { onDone: () => void }) {
   const group = useRef<THREE.Group>(null);
   const gltf = useLoadedGltf(url);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -88,6 +100,7 @@ function CreatureModel({ url, clipName, scale, y, duration, direction, facingOff
   });
 
   if (!gltf) return null;
+  const scale = targetWidth / gltf.scaleFactor;
   return <primitive ref={group} object={gltf.scene} scale={scale} />;
 }
 
