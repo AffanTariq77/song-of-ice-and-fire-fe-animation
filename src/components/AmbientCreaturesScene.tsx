@@ -16,11 +16,12 @@ import { GltfRat } from './GltfRat';
  * along the bottom edge, some pausing mid-crossing on their idle clip before
  * continuing. Crow/dragon still use their GLTF models pending a follow-up pass.
  *
- * KNOWN ISSUE: a soft white radial glow sometimes appears over this iframe's
- * content on the real deployed host page — see docs/white-glow-handover.md in
- * this repo for the full investigation (ruled out: scene content, lighting,
- * antialiasing, clear-alpha, all CSS filters/blend-modes including pseudo-
- * elements). Needs actual GPU Layers/Paint DevTools inspection to progress.
+ * The white-glow bug tracked in docs/white-glow-handover.md turned out to be
+ * a WebGL context loss: the live console showed "THREE.WebGLRenderer: Context
+ * Lost." — three.js's default context-lost handling calls preventDefault() so
+ * the browser auto-restores it, but restoration doesn't re-run onCreated, so
+ * the explicit setClearColor below was only ever applied once and silently
+ * lost on restore. Re-applying it on 'webglcontextrestored' fixes that.
  */
 export default function AmbientCreaturesScene() {
   return (
@@ -32,7 +33,11 @@ export default function AmbientCreaturesScene() {
         camera={{ position: [0, 0, 10], fov: 50 }}
         gl={{ alpha: true, antialias: false, premultipliedAlpha: false }}
         dpr={[1, 1.5]}
-        onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
+        onCreated={({ gl }) => {
+          const applyTransparentClear = () => gl.setClearAlpha(0);
+          applyTransparentClear();
+          gl.domElement.addEventListener('webglcontextrestored', applyTransparentClear);
+        }}
       >
         <ambientLight intensity={1.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
