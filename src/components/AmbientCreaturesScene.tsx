@@ -24,7 +24,7 @@ export default function AmbientCreaturesScene() {
     >
       <Canvas
         camera={{ position: [0, 0, 10], fov: 50 }}
-        gl={{ alpha: true, antialias: true, premultipliedAlpha: false }}
+        gl={{ alpha: true, antialias: false, premultipliedAlpha: false }}
         dpr={[1, 1.5]}
         onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
       >
