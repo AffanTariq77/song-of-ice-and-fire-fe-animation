@@ -1,6 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
+import { Corridor, LEDGE_Y } from './Corridor';
 import { GltfRat } from './GltfRat';
 import { CreatureLights } from './CreatureLights';
 import { Interactions } from './Interactions';
@@ -30,14 +31,16 @@ export default function RatsScene() {
       >
         <Interactions />
 
-        <CreatureLights />
+        <CreatureLights rim={2.2} ambient={2.4} />
 
-        <GltfRat y={0.85} duration={9} minDelay={1} maxDelay={6} direction={1} scale={0.4} />
-        <GltfRat y={0.85} duration={8} minDelay={2} maxDelay={8} direction={-1} scale={0.35} />
-        <GltfRat y={0.85} duration={11} minDelay={0.5} maxDelay={5} direction={1} scale={0.45} />
-        <GltfRat y={0.85} duration={7} minDelay={3} maxDelay={9} direction={-1} scale={0.5} />
-        <GltfRat y={0.85} duration={10} minDelay={1.5} maxDelay={7} direction={1} scale={0.35} />
-        <GltfRat y={0.85} duration={9} minDelay={4} maxDelay={10} direction={-1} scale={0.4} />
+        <Corridor />
+
+        <GltfRat y={LEDGE_Y} duration={9} minDelay={1} maxDelay={6} direction={1} scale={0.4} />
+        <GltfRat y={LEDGE_Y} duration={8} minDelay={2} maxDelay={8} direction={-1} scale={0.35} />
+        <GltfRat y={LEDGE_Y} duration={11} minDelay={0.5} maxDelay={5} direction={1} scale={0.45} />
+        <GltfRat y={LEDGE_Y} duration={7} minDelay={3} maxDelay={9} direction={-1} scale={0.5} />
+        <GltfRat y={LEDGE_Y} duration={10} minDelay={1.5} maxDelay={7} direction={1} scale={0.35} />
+        <GltfRat y={LEDGE_Y} duration={9} minDelay={4} maxDelay={10} direction={-1} scale={0.4} />
       </Canvas>
     </div>
   );

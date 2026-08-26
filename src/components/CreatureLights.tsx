@@ -19,15 +19,19 @@
  * The body barely moves while the edges climb, which is the whole point: the shape
  * reads, the plumage stays black. Past about 12 the highlight starts looking like a
  * light source rather than a reflection, so this sits just under that.
+ *
+ * The rim is turned right down in the footer. That scene has a modelled corridor with
+ * real torches doing the modelling already, and a directional light strong enough to
+ * pick out a crow's wing turns a large flat stone ledge into a pale blue slab.
  */
-export function CreatureLights() {
+export function CreatureLights({ rim = 10, ambient = 1.3 }: { rim?: number; ambient?: number } = {}) {
   return (
     <>
-      <ambientLight intensity={1.3} />
+      <ambientLight intensity={ambient} />
       {/* Key: warm torchlight, matching the site's gold. */}
       <directionalLight position={[3, 5, 4]} intensity={1.7} color="#f2c14d" />
       {/* Rim: cool, from behind and above, doing the separation work. */}
-      <directionalLight position={[-5, 4, -7]} intensity={10} color="#9db4cf" />
+      <directionalLight position={[-5, 4, -7]} intensity={rim} color="#9db4cf" />
       {/* Bounce: a faint cold fill so undersides are not pure black. */}
       <directionalLight position={[0, -4, 3]} intensity={0.85} color="#3a5170" />
     </>
