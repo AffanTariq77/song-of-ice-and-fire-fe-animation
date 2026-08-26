@@ -28,6 +28,27 @@ import { AmbientCreature } from './AmbientCreature';
  * the explicit clear-alpha below was only ever applied once and silently
  * lost on restore. Re-applying it on 'webglcontextrestored' fixes that.
  */
+/**
+ * The flock. Five birds rather than one, at roughly half the previous size, crossing
+ * in both directions across the upper band of the viewport.
+ *
+ * Every field varies per bird on purpose. Five identical crows on staggered timers
+ * still read as five copies of one animation, because the eye picks up the shared
+ * altitude, speed and wing rhythm immediately. Different `duration` breaks the rhythm,
+ * different `y` breaks the rank, and different `driftWaves`/`driftAmplitude` mean no
+ * two share a path shape even when they happen to cross together.
+ *
+ * `targetWidth` averages 0.65 (down from a single crow at 1.3) with a spread, so the
+ * flock also reads as having depth rather than sitting on one plane.
+ */
+const CROWS = [
+  { targetWidth: 0.72, y: 0.1, duration: 19, minDelay: 2, maxDelay: 10, direction: 1 as const, driftAmplitude: 0.5, driftWaves: 1.5 },
+  { targetWidth: 0.6, y: 0.19, duration: 25, minDelay: 5, maxDelay: 16, direction: -1 as const, driftAmplitude: 0.75, driftWaves: 1 },
+  { targetWidth: 0.68, y: 0.15, duration: 16, minDelay: 3, maxDelay: 12, direction: 1 as const, driftAmplitude: 0.35, driftWaves: 2.5 },
+  { targetWidth: 0.56, y: 0.26, duration: 29, minDelay: 8, maxDelay: 22, direction: -1 as const, driftAmplitude: 0.9, driftWaves: 1.5 },
+  { targetWidth: 0.66, y: 0.08, duration: 22, minDelay: 3, maxDelay: 14, direction: 1 as const, driftAmplitude: 0.45, driftWaves: 2 },
+];
+
 export default function AmbientCreaturesScene() {
   return (
     <div
@@ -47,16 +68,15 @@ export default function AmbientCreaturesScene() {
         <ambientLight intensity={1.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
 
-        <AmbientCreature
-          url="/models/crow.glb"
-          clipName="SKM_Crow|SKM_Crow|Crow_Fly"
-          targetWidth={1.3}
-          y={0.16}
-          duration={22}
-          minDelay={18}
-          maxDelay={40}
-          direction={1}
-        />
+        {CROWS.map((crow, i) => (
+          <AmbientCreature
+            key={i}
+            url="/models/crow.glb"
+            clipName="SKM_Crow|SKM_Crow|Crow_Fly"
+            {...crow}
+          />
+        ))}
+
         <AmbientCreature
           url="/models/dragon.glb"
           clipName="flying"

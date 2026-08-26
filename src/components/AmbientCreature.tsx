@@ -25,6 +25,22 @@ export type AmbientCreatureProps = {
   direction: 1 | -1;
   /** Extra turn so the model's forward axis matches its direction of travel; tune per-model. */
   facingOffset?: number;
+  /**
+   * Vertical wander over a crossing, in world units. A dead-straight lerp reads as a
+   * sprite being slid across the screen rather than something flying, so each bird
+   * rides a sine over its path. 0 keeps the old straight-line behaviour (the dragon
+   * uses this — it is large and slow enough that drift just looks like drift).
+   */
+  driftAmplitude?: number;
+  /** Number of full rise-and-fall cycles across one crossing. Fractional values are fine. */
+  driftWaves?: number;
+  /**
+   * How hard the bird rolls into its own climb and dive. rotation.z is the innermost
+   * rotation under three.js's default XYZ Euler order, so it is applied in model space
+   * *before* the yaw below — i.e. it is a roll about the axis of travel, which is what
+   * banking actually is, rather than a screen-space tilt.
+   */
+  bank?: number;
 };
 
 function randomBetween(min: number, max: number) {
@@ -61,13 +77,29 @@ function useLoadedGltf(url: string) {
   return result;
 }
 
-function CreatureModel({ url, clipName, targetWidth, y, duration, direction, facingOffset = 0, onDone }: AmbientCreatureProps & { onDone: () => void }) {
+function CreatureModel({
+  url,
+  clipName,
+  targetWidth,
+  y,
+  duration,
+  direction,
+  facingOffset = 0,
+  driftAmplitude = 0,
+  driftWaves = 1,
+  bank = 0.55,
+  onDone,
+}: AmbientCreatureProps & { onDone: () => void }) {
   const group = useRef<THREE.Group>(null);
   const gltf = useLoadedGltf(url);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const { viewport } = useThree();
   const elapsed = useRef(0);
   const doneRef = useRef(false);
+
+  // Per-crossing phase, so several birds sharing a drift shape never rise and fall
+  // in unison. Picked once per mount; each crossing is a fresh mount.
+  const [phase] = useState(() => Math.random());
 
   useEffect(() => {
     if (!gltf) return;
@@ -87,12 +119,38 @@ function CreatureModel({ url, clipName, targetWidth, y, duration, direction, fac
     if (doneRef.current || !group.current) return;
     elapsed.current += delta;
     const t = Math.min(elapsed.current / duration, 1);
+
     const span = viewport.width * 1.6;
     const startX = direction === 1 ? -span / 2 : span / 2;
     const endX = -startX;
     group.current.position.x = THREE.MathUtils.lerp(startX, endX, t);
-    group.current.position.y = viewport.height / 2 - y * viewport.height;
-    group.current.rotation.y = (direction === 1 ? Math.PI / 2 : -Math.PI / 2) + facingOffset;
+
+    const baseY = viewport.height / 2 - y * viewport.height;
+    if (driftAmplitude === 0) {
+      group.current.position.y = baseY;
+      group.current.rotation.set(0, (direction === 1 ? Math.PI / 2 : -Math.PI / 2) + facingOffset, 0);
+      if (t >= 1) {
+        doneRef.current = true;
+        onDone();
+      }
+      return;
+    }
+
+    const angle = (t * driftWaves + phase) * Math.PI * 2;
+    // Fade the drift in and out at the edges so a bird never enters or leaves
+    // mid-climb, which reads as it being cut off rather than flying past.
+    const envelope = Math.sin(Math.PI * t);
+    group.current.position.y = baseY + driftAmplitude * Math.sin(angle) * envelope;
+
+    // Roll into the climb. d(sin)/dt is cos, scaled by the same envelope; the
+    // constant folds into `bank` so this stays one multiply.
+    const slope = Math.cos(angle) * driftWaves * envelope;
+    group.current.rotation.set(
+      0,
+      (direction === 1 ? Math.PI / 2 : -Math.PI / 2) + facingOffset,
+      THREE.MathUtils.clamp(-slope * bank * direction, -0.45, 0.45),
+    );
+
     if (t >= 1) {
       doneRef.current = true;
       onDone();
