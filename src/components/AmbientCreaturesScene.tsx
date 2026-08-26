@@ -2,6 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { AmbientCreature } from './AmbientCreature';
+import { Interactions } from './Interactions';
 
 /**
  * The entire content of this standalone app's main route: the sitewide,
@@ -65,6 +66,8 @@ export default function AmbientCreaturesScene() {
           gl.domElement.addEventListener('webglcontextrestored', applyTransparentClear);
         }}
       >
+        <Interactions />
+
         <ambientLight intensity={1.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useInteractive } from './Interactions';
 
 export type AmbientCreatureProps = {
   url: string;
@@ -41,7 +42,20 @@ export type AmbientCreatureProps = {
    * banking actually is, rather than a screen-space tilt.
    */
   bank?: number;
+  /**
+   * Pointer hit radius in world units. Defaults to a shade wider than the bird itself
+   * (see HIT_RADIUS_FACTOR).
+   */
+  hitRadius?: number;
 };
+
+/**
+ * Hit radius as a multiple of the bird's own on-screen width. A crow at these sizes is
+ * only ~50px across and always moving, so an exact-size target is unsatisfying to
+ * click; much beyond this and birds start scattering from clicks aimed at links near
+ * them, which reads as a bug rather than a flourish.
+ */
+const HIT_RADIUS_FACTOR = 1.25;
 
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -88,6 +102,7 @@ function CreatureModel({
   driftAmplitude = 0,
   driftWaves = 1,
   bank = 0.55,
+  hitRadius,
   onDone,
 }: AmbientCreatureProps & { onDone: () => void }) {
   const group = useRef<THREE.Group>(null);
@@ -100,6 +115,25 @@ function CreatureModel({
   // Per-crossing phase, so several birds sharing a drift shape never rise and fall
   // in unison. Picked once per mount; each crossing is a fresh mount.
   const [phase] = useState(() => Math.random());
+
+  /**
+   * Set on click. Once startled the bird abandons its scheduled path entirely and is
+   * integrated by velocity instead: it accelerates along its heading, climbs hard, and
+   * rolls level again as it goes, until it clears the viewport and reschedules as a
+   * normal crossing.
+   */
+  const startle = useRef<{ speed: number; climb: number; roll: number } | null>(null);
+
+  useInteractive({
+    objectRef: group,
+    radius: hitRadius ?? targetWidth * HIT_RADIUS_FACTOR,
+    onClick: () => {
+      if (startle.current || doneRef.current) return;
+      startle.current = { speed: (viewport.width * 1.6) / duration, climb: 2.5, roll: 0.6 };
+      // Panicked wingbeats, not cruising ones.
+      if (mixerRef.current) mixerRef.current.timeScale = 2.2;
+    },
+  });
 
   useEffect(() => {
     if (!gltf) return;
@@ -117,6 +151,26 @@ function CreatureModel({
   useFrame((_, delta) => {
     mixerRef.current?.update(delta);
     if (doneRef.current || !group.current) return;
+
+    const yaw = (direction === 1 ? Math.PI / 2 : -Math.PI / 2) + facingOffset;
+
+    if (startle.current) {
+      const s = startle.current;
+      s.speed = Math.min(s.speed + delta * 24, 32);
+      s.climb = Math.min(s.climb + delta * 14, 17);
+      s.roll = THREE.MathUtils.lerp(s.roll, 0, Math.min(delta * 2.2, 1));
+      group.current.position.x += direction * s.speed * delta;
+      group.current.position.y += s.climb * delta;
+      group.current.rotation.set(0, yaw, -s.roll * direction);
+      const limitX = viewport.width * 0.9 + 3;
+      const limitY = viewport.height / 2 + 3;
+      if (Math.abs(group.current.position.x) > limitX || group.current.position.y > limitY) {
+        doneRef.current = true;
+        onDone();
+      }
+      return;
+    }
+
     elapsed.current += delta;
     const t = Math.min(elapsed.current / duration, 1);
 
@@ -128,7 +182,7 @@ function CreatureModel({
     const baseY = viewport.height / 2 - y * viewport.height;
     if (driftAmplitude === 0) {
       group.current.position.y = baseY;
-      group.current.rotation.set(0, (direction === 1 ? Math.PI / 2 : -Math.PI / 2) + facingOffset, 0);
+      group.current.rotation.set(0, yaw, 0);
       if (t >= 1) {
         doneRef.current = true;
         onDone();
@@ -145,11 +199,7 @@ function CreatureModel({
     // Roll into the climb. d(sin)/dt is cos, scaled by the same envelope; the
     // constant folds into `bank` so this stays one multiply.
     const slope = Math.cos(angle) * driftWaves * envelope;
-    group.current.rotation.set(
-      0,
-      (direction === 1 ? Math.PI / 2 : -Math.PI / 2) + facingOffset,
-      THREE.MathUtils.clamp(-slope * bank * direction, -0.45, 0.45),
-    );
+    group.current.rotation.set(0, yaw, THREE.MathUtils.clamp(-slope * bank * direction, -0.45, 0.45));
 
     if (t >= 1) {
       doneRef.current = true;

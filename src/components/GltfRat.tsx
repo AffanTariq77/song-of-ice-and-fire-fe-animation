@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useInteractive } from './Interactions';
 
 export type GltfRatProps = {
   /** Vertical position as a fraction of viewport height, 0 = top, 1 = bottom — this is where its feet land. */
@@ -15,6 +16,8 @@ export type GltfRatProps = {
   scale?: number;
   /** Chance (0-1) this crossing includes a stop-and-look pause partway through. */
   pauseChance?: number;
+  /** Pointer hit radius in world units. Defaults to the rat's own on-screen width. */
+  hitRadius?: number;
 };
 
 function randomBetween(min: number, max: number) {
@@ -25,7 +28,7 @@ const RUN_CLIP = 'Mammals|run_A1';
 const IDLE_CLIP = 'Mammals|idle_A1';
 
 function useLoadedGltf(url: string) {
-  const [result, setResult] = useState<{ scene: THREE.Group; animations: THREE.AnimationClip[]; groundOffset: number } | null>(null);
+  const [result, setResult] = useState<{ scene: THREE.Group; animations: THREE.AnimationClip[]; groundOffset: number; width: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +38,13 @@ function useLoadedGltf(url: string) {
         if (cancelled) return;
         // Ground the model on its actual feet regardless of where its authored pivot sits.
         const box = new THREE.Box3().setFromObject(gltf.scene);
-        setResult({ scene: gltf.scene, animations: gltf.animations, groundOffset: -box.min.y });
+        const size = box.getSize(new THREE.Vector3());
+        setResult({
+          scene: gltf.scene,
+          animations: gltf.animations,
+          groundOffset: -box.min.y,
+          width: Math.max(size.x, size.z) || 1,
+        });
       });
     });
     return () => {
@@ -48,7 +57,15 @@ function useLoadedGltf(url: string) {
 
 type Phase = 'running' | 'paused';
 
-function RatModel({ y, duration, direction, scale = 1, pauseChance = 0.5, onDone }: GltfRatProps & { onDone: () => void }) {
+function RatModel({
+  y,
+  duration,
+  direction,
+  scale = 1,
+  pauseChance = 0.5,
+  hitRadius,
+  onDone,
+}: GltfRatProps & { onDone: (bolted: boolean) => void }) {
   const group = useRef<THREE.Group>(null);
   const gltf = useLoadedGltf('/models/rat.glb');
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -64,6 +81,28 @@ function RatModel({ y, duration, direction, scale = 1, pauseChance = 0.5, onDone
   const elapsed = useRef(0);
   const pauseElapsed = useRef(0);
   const phase = useRef<Phase>('running');
+
+  /**
+   * Set on hover. A spooked rat abandons any planned pause, sprints for the edge it
+   * was already heading towards, and the wrapper then re-enters it from the opposite
+   * side, so it reads as the same rat having run off and come back another way.
+   */
+  const bolted = useRef(false);
+
+  useInteractive({
+    objectRef: group,
+    radius: hitRadius ?? Math.max((gltf?.width ?? 1) * scale, 0.3),
+    onHover: () => {
+      if (bolted.current) return;
+      bolted.current = true;
+      if (phase.current === 'paused') {
+        phase.current = 'running';
+        actionsRef.current.idle?.fadeOut(0.15);
+        actionsRef.current.run?.reset().fadeIn(0.15).play();
+      }
+      if (mixerRef.current) mixerRef.current.timeScale = 2.4;
+    },
+  });
 
   useEffect(() => {
     if (!gltf) return;
@@ -98,7 +137,7 @@ function RatModel({ y, duration, direction, scale = 1, pauseChance = 0.5, onDone
       return;
     }
 
-    elapsed.current += delta;
+    elapsed.current += delta * (bolted.current ? 3.2 : 1);
     const t = Math.min(elapsed.current / duration, 1);
     const span = viewport.width * 1.5;
     const startX = direction === 1 ? -span / 2 : span / 2;
@@ -107,14 +146,14 @@ function RatModel({ y, duration, direction, scale = 1, pauseChance = 0.5, onDone
     group.current.position.y = groundY + gltf.groundOffset * scale;
     group.current.rotation.y = direction === 1 ? Math.PI / 2 : -Math.PI / 2;
 
-    if (plan.willPause && pauseElapsed.current === 0 && t >= plan.pauseAt) {
+    if (!bolted.current && plan.willPause && pauseElapsed.current === 0 && t >= plan.pauseAt) {
       phase.current = 'paused';
       pauseElapsed.current = 0.0001;
       actionsRef.current.run?.fadeOut(0.3);
       actionsRef.current.idle?.reset().fadeIn(0.3).play();
     }
 
-    if (t >= 1) onDone();
+    if (t >= 1) onDone(bolted.current);
   });
 
   if (!gltf) return null;
@@ -124,6 +163,7 @@ function RatModel({ y, duration, direction, scale = 1, pauseChance = 0.5, onDone
 /** Self-scheduling GLTF rat: waits a random delay, scurries across once (maybe pausing to look up midway), then reschedules. */
 export function GltfRat(props: GltfRatProps) {
   const [active, setActive] = useState(false);
+  const [direction, setDirection] = useState<1 | -1>(props.direction);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -132,11 +172,19 @@ export function GltfRat(props: GltfRatProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleDone() {
+  function handleDone(bolted: boolean) {
     setActive(false);
-    timeoutRef.current = setTimeout(() => setActive(true), randomBetween(props.minDelay, props.maxDelay) * 1000);
+    // Flip only after a scare: an undisturbed rat keeps its lane, so the ledge does
+    // not turn into every rat oscillating back and forth.
+    if (bolted) setDirection((d) => (d === 1 ? -1 : 1));
+    // A spooked rat also waits a beat longer before it dares come back.
+    const scale = bolted ? 1.8 : 1;
+    timeoutRef.current = setTimeout(
+      () => setActive(true),
+      randomBetween(props.minDelay, props.maxDelay) * scale * 1000,
+    );
   }
 
   if (!active) return null;
-  return <RatModel {...props} onDone={handleDone} />;
+  return <RatModel {...props} direction={direction} onDone={handleDone} />;
 }

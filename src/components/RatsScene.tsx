@@ -2,6 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { GltfRat } from './GltfRat';
+import { Interactions } from './Interactions';
 
 /**
  * Rats-only scene, meant to be embedded at the footer's own size (a short,
@@ -26,6 +27,8 @@ export default function RatsScene() {
           gl.domElement.addEventListener('webglcontextrestored', applyTransparentClear);
         }}
       >
+        <Interactions />
+
         <ambientLight intensity={1.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
 
