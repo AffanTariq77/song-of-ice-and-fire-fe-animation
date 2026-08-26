@@ -9,10 +9,35 @@
  * knowing the other's geometry.
  */
 
+/**
+ * A place a crow can land, as reported by the host. All four rect fields are
+ * normalised to 0..1 within the iframe's own box, same convention as pointer
+ * coordinates.
+ *
+ * These are only meaningful for a perch iframe, which is positioned *absolutely*
+ * inside the section it decorates rather than fixed to the viewport. That matters: a
+ * fixed overlay repositioned by postMessage lags the page by exactly one frame while
+ * scrolling — measured at 5px, 15px and 40px for slow, normal and fast scrolling — and
+ * a branch that slides against the text it is anchored to looks broken. An absolutely
+ * positioned frame scrolls natively with the page, so these rects only change on
+ * layout, never on scroll.
+ */
+export type PerchAnchor = {
+  id: string;
+  /** 'branch' grows a branch from the outer edge; 'ledge' perches on the rect's top edge. */
+  kind: 'branch' | 'ledge';
+  side: 'left' | 'right';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
 export type AmbientPointerMessage =
   | { source: 'asoiaf-ambient'; v: 1; type: 'pointer'; x: number; y: number }
   | { source: 'asoiaf-ambient'; v: 1; type: 'click'; x: number; y: number }
-  | { source: 'asoiaf-ambient'; v: 1; type: 'leave' };
+  | { source: 'asoiaf-ambient'; v: 1; type: 'leave' }
+  | { source: 'asoiaf-ambient'; v: 1; type: 'anchors'; anchors: PerchAnchor[] };
 
 /** Mutable, read every frame by <Interactions />. Deliberately not React state. */
 export const pointerState = {
@@ -46,13 +71,38 @@ function isAllowedOrigin(origin: string) {
   return false;
 }
 
+function isRect(v: unknown): v is PerchAnchor {
+  if (typeof v !== 'object' || v === null) return false;
+  const a = v as Record<string, unknown>;
+  if (typeof a.id !== 'string') return false;
+  if (a.kind !== 'branch' && a.kind !== 'ledge') return false;
+  if (a.side !== 'left' && a.side !== 'right') return false;
+  return (['x', 'y', 'w', 'h'] as const).every((k) => typeof a[k] === 'number' && Number.isFinite(a[k]));
+}
+
 function isPointerMessage(data: unknown): data is AmbientPointerMessage {
   if (typeof data !== 'object' || data === null) return false;
   const m = data as Record<string, unknown>;
   if (m.source !== 'asoiaf-ambient' || m.v !== 1) return false;
   if (m.type === 'leave') return true;
+  if (m.type === 'anchors') return Array.isArray(m.anchors) && m.anchors.every(isRect);
   if (m.type !== 'pointer' && m.type !== 'click') return false;
   return typeof m.x === 'number' && typeof m.y === 'number' && Number.isFinite(m.x) && Number.isFinite(m.y);
+}
+
+/** Latest anchors, plus a subscription so React can re-render when they change. */
+let anchors: PerchAnchor[] = [];
+const anchorListeners = new Set<() => void>();
+
+export function subscribeAnchors(fn: () => void) {
+  anchorListeners.add(fn);
+  return () => {
+    anchorListeners.delete(fn);
+  };
+}
+
+export function getAnchors() {
+  return anchors;
 }
 
 function onMessage(event: MessageEvent) {
@@ -61,6 +111,12 @@ function onMessage(event: MessageEvent) {
 
   if (event.data.type === 'leave') {
     pointerState.inside = false;
+    return;
+  }
+
+  if (event.data.type === 'anchors') {
+    anchors = event.data.anchors;
+    for (const fn of anchorListeners) fn();
     return;
   }
 

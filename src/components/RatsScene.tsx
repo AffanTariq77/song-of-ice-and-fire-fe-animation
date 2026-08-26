@@ -2,6 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { GltfRat } from './GltfRat';
+import { CreatureLights } from './CreatureLights';
 import { Interactions } from './Interactions';
 
 /**
@@ -29,8 +30,7 @@ export default function RatsScene() {
       >
         <Interactions />
 
-        <ambientLight intensity={1.3} />
-        <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
+        <CreatureLights />
 
         <GltfRat y={0.85} duration={9} minDelay={1} maxDelay={6} direction={1} scale={0.4} />
         <GltfRat y={0.85} duration={8} minDelay={2} maxDelay={8} direction={-1} scale={0.35} />

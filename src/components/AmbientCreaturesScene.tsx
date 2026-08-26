@@ -2,6 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { AmbientCreature } from './AmbientCreature';
+import { CreatureLights } from './CreatureLights';
 import { Interactions } from './Interactions';
 
 /**
@@ -68,8 +69,7 @@ export default function AmbientCreaturesScene() {
       >
         <Interactions />
 
-        <ambientLight intensity={1.3} />
-        <directionalLight position={[3, 5, 4]} intensity={1.6} color="#f2c14d" />
+        <CreatureLights />
 
         {CROWS.map((crow, i) => (
           <AmbientCreature

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useInteractive } from './Interactions';
+import { instantiate, type LoadedModel } from '@/lib/gltf-cache';
 
 export type GltfRatProps = {
   /** Vertical position as a fraction of viewport height, 0 = top, 1 = bottom — this is where its feet land. */
@@ -28,24 +29,12 @@ const RUN_CLIP = 'Mammals|run_A1';
 const IDLE_CLIP = 'Mammals|idle_A1';
 
 function useLoadedGltf(url: string) {
-  const [result, setResult] = useState<{ scene: THREE.Group; animations: THREE.AnimationClip[]; groundOffset: number; width: number } | null>(null);
+  const [result, setResult] = useState<LoadedModel | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    import('three/examples/jsm/loaders/GLTFLoader.js').then(({ GLTFLoader }) => {
-      if (cancelled) return;
-      new GLTFLoader().load(url, (gltf) => {
-        if (cancelled) return;
-        // Ground the model on its actual feet regardless of where its authored pivot sits.
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const size = box.getSize(new THREE.Vector3());
-        setResult({
-          scene: gltf.scene,
-          animations: gltf.animations,
-          groundOffset: -box.min.y,
-          width: Math.max(size.x, size.z) || 1,
-        });
-      });
+    instantiate(url).then((model) => {
+      if (!cancelled) setResult(model);
     });
     return () => {
       cancelled = true;

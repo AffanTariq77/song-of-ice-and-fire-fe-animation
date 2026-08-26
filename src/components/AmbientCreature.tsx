@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useInteractive } from './Interactions';
+import { instantiate, type LoadedModel } from '@/lib/gltf-cache';
 
 export type AmbientCreatureProps = {
   url: string;
@@ -61,27 +62,13 @@ function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-/**
- * Loads a GLTF model via a fully dynamic import of three.js's own loader (not drei's
- * useGLTF, which drags in Draco/Meshopt decoder wiring that isn't needed for these
- * plain embedded-texture models and was blowing up Turbopack's build memory sitewide).
- */
 function useLoadedGltf(url: string) {
-  const [result, setResult] = useState<{ scene: THREE.Group; animations: THREE.AnimationClip[]; scaleFactor: number } | null>(null);
+  const [result, setResult] = useState<LoadedModel | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    import('three/examples/jsm/loaders/GLTFLoader.js').then(({ GLTFLoader }) => {
-      if (cancelled) return;
-      new GLTFLoader().load(url, (gltf) => {
-        if (cancelled) return;
-        // Actual post-transform size — accounts for any scale/rotation baked
-        // into the model's own node hierarchy, unlike raw accessor min/max.
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const size = box.getSize(new THREE.Vector3());
-        const width = Math.max(size.x, size.z) || 1;
-        setResult({ scene: gltf.scene, animations: gltf.animations, scaleFactor: width });
-      });
+    instantiate(url).then((model) => {
+      if (!cancelled) setResult(model);
     });
     return () => {
       cancelled = true;
@@ -208,7 +195,7 @@ function CreatureModel({
   });
 
   if (!gltf) return null;
-  const scale = targetWidth / gltf.scaleFactor;
+  const scale = targetWidth / gltf.width;
   return <primitive ref={group} object={gltf.scene} scale={scale} />;
 }
 
