@@ -1,3 +1,28 @@
+/*
+ * The embedding page (song-of-ice-and-fire-fe) declares `color-scheme: dark` on
+ * its own <html>. A color-scheme does not cross a frame boundary, so without the
+ * declaration below this document resolved to `light`, and Chrome then filled the
+ * frame's base background with the light canvas colour -- opaque white --
+ * *underneath* this document. The `background: transparent` further down cannot
+ * win against that, because the fill sits beneath the document rather than being
+ * part of it.
+ *
+ * That opaque white iframe surface, seen through the host page's vignette overlay
+ * (GrainOverlay's `radial-gradient(ellipse at center, transparent 45%,
+ * rgba(5,7,13,0.65) 100%)`), is the soft-edged white oval tracked in
+ * docs/HANDOVER.md -- the vignette darkens the edges and leaves a centred ellipse
+ * roughly 55% of the viewport wide, with the page's text washed out beneath it.
+ * On the short footer ledge there is no room for that falloff, so the whole strip
+ * reads as white instead.
+ *
+ * Declaring a matching dark color-scheme here makes the frame's base background
+ * transparent again. Verified by bisection: `dark` and `only dark` composite
+ * transparently; omitting it, `normal`, and `light` all reproduce the bug.
+ */
+html {
+  color-scheme: dark;
+}
+
 html,
 body {
   margin: 0;
