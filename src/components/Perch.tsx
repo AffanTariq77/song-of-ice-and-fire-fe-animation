@@ -5,7 +5,9 @@ import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { instantiate, type LoadedModel } from '@/lib/gltf-cache';
 import type { PerchAnchor } from '@/lib/pointer-bridge';
+import { Dragon } from './Dragon';
 import { PerchingCrow } from './PerchingCrow';
+import { Roost, roostTop } from './Roost';
 
 const BRANCH_URL = '/models/branch.glb';
 /** How far along the main limb a bird stands. Far enough out to look perched and to
@@ -72,6 +74,28 @@ export function Perch({ anchor }: { anchor: PerchAnchor }) {
     viewport.height * 0.12,
     viewport.height * 0.3,
   );
+
+  if (anchor.kind === 'roost') {
+    // A spire tall enough to read as a ruin, with the dragon sized against it rather
+    // than against the band, which is far wider than it is tall.
+    const roostHeight = viewport.height * 0.42;
+    const roostRadius = Math.min(world.width * 0.16, viewport.height * 0.07);
+    const baseX = (world.left + world.right) / 2;
+    const baseY = world.top - viewport.height * 0.44;
+    return (
+      <group position={[baseX, baseY, 0]}>
+        <Roost height={roostHeight} radius={roostRadius} />
+        <Dragon
+          roost={new THREE.Vector3(0, roostTop(roostHeight) + viewport.height * 0.04, 0)}
+          width={world.width}
+          height={viewport.height}
+          span={viewport.width}
+          targetWidth={Math.min(viewport.height * 0.72, viewport.width * 0.2)}
+          centerX={-baseX}
+        />
+      </group>
+    );
+  }
 
   if (anchor.kind === 'ledge') {
     // Nothing to draw: the bird stands on the page element itself.

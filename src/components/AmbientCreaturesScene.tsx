@@ -7,9 +7,9 @@ import { Interactions } from './Interactions';
 
 /**
  * The entire content of this standalone app's main route: the sitewide,
- * full-viewport ambient layer — crow and dragon crossing the sky. Rats moved
- * to the /rats route, embedded only over the footer on the host site instead
- * of sitewide (see src/app/rats/page.tsx and RatsScene.tsx).
+ * full-viewport ambient layer — a flock of crows crossing the sky. Rats live on
+ * the /rats route over the footer; the dragon lives on /perch, and only where the
+ * host declares a roost, which is Chronicles alone.
  *
  * Isolated into its own repo/deployment so its build graph (three.js +
  * GLTFLoader) never shares a build container with the main app's much
@@ -80,16 +80,6 @@ export default function AmbientCreaturesScene() {
           />
         ))}
 
-        <AmbientCreature
-          url="/models/dragon.glb"
-          clipName="flying"
-          targetWidth={4.5}
-          y={0.12}
-          duration={46}
-          minDelay={55}
-          maxDelay={100}
-          direction={-1}
-        />
       </Canvas>
     </div>
   );

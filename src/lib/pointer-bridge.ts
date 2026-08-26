@@ -24,8 +24,13 @@
  */
 export type PerchAnchor = {
   id: string;
-  /** 'branch' grows a branch from the outer edge; 'ledge' perches on the rect's top edge. */
-  kind: 'branch' | 'ledge';
+  /**
+   * 'branch' grows a branch inward from the outer edge, 'ledge' perches directly on
+   * the rect's top edge, and 'roost' raises a broken stone spire for the dragon.
+   * The dragon appears wherever a roost is declared and nowhere else, so which pages
+   * have one is entirely the host's decision.
+   */
+  kind: 'branch' | 'ledge' | 'roost';
   side: 'left' | 'right';
   x: number;
   y: number;
@@ -75,7 +80,7 @@ function isRect(v: unknown): v is PerchAnchor {
   if (typeof v !== 'object' || v === null) return false;
   const a = v as Record<string, unknown>;
   if (typeof a.id !== 'string') return false;
-  if (a.kind !== 'branch' && a.kind !== 'ledge') return false;
+  if (a.kind !== 'branch' && a.kind !== 'ledge' && a.kind !== 'roost') return false;
   if (a.side !== 'left' && a.side !== 'right') return false;
   return (['x', 'y', 'w', 'h'] as const).every((k) => typeof a[k] === 'number' && Number.isFinite(a[k]));
 }
