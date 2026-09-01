@@ -6,20 +6,23 @@ import { CreatureLights } from './CreatureLights';
 import { Interactions } from './Interactions';
 
 /**
- * The entire content of this standalone app's main route: the sitewide,
- * full-viewport ambient layer — a flock of crows crossing the sky. Rats live on
- * the /rats route over the footer; the dragon lives on /perch, and only where the
- * host declares a roost, which is Chronicles alone.
+ * The entire content of this standalone app's main route: a flock of crows crossing
+ * the sky. Rats live on the /rats route over the footer.
+ *
+ * The host no longer mounts this sitewide. It goes over the home page's hero section,
+ * where it unmounts once you scroll past, and over Chronicles. The perch layer, the
+ * branches the crows landed on and the dragon that roosted on Chronicles have all been
+ * removed; if any of that is ever wanted back, it is in the history at f7f6178.
  *
  * Isolated into its own repo/deployment so its build graph (three.js +
  * GLTFLoader) never shares a build container with the main app's much
  * larger one.
  *
  * Sizes are given as targetWidth (world units) rather than a raw scale
- * multiplier — several of these GLB files bake a scale/rotation into a root
- * node matrix that a naive raw-mesh-size estimate misses entirely, which is
- * why the crow rendered far too small and the dragon was never seen at all
- * despite "reasonable-looking" scale values. AmbientCreature now computes
+ * multiplier: these GLB files bake a scale/rotation into a root node matrix
+ * that a naive raw-mesh-size estimate misses entirely, which is why the crow
+ * rendered far too small despite a "reasonable-looking" scale value.
+ * AmbientCreature now computes
  * the model's actual rendered bounding box after load and derives the scale
  * needed to hit targetWidth, so this isn't guesswork anymore.
  *

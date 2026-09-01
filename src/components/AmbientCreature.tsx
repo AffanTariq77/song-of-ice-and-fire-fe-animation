@@ -30,8 +30,7 @@ export type AmbientCreatureProps = {
   /**
    * Vertical wander over a crossing, in world units. A dead-straight lerp reads as a
    * sprite being slid across the screen rather than something flying, so each bird
-   * rides a sine over its path. 0 keeps the old straight-line behaviour (the dragon
-   * uses this — it is large and slow enough that drift just looks like drift).
+   * rides a sine over its path. 0 gives a straight line.
    */
   driftAmplitude?: number;
   /** Number of full rise-and-fall cycles across one crossing. Fractional values are fine. */
