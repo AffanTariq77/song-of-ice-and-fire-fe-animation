@@ -40,7 +40,7 @@ const CONFIGURED = (process.env.NEXT_PUBLIC_PARENT_ORIGINS ?? '')
   .map((o) => o.trim())
   .filter(Boolean);
 
-const DEFAULT_ORIGINS = ['https://song-of-ice-and-fire-3l4u.vercel.app'];
+const DEFAULT_ORIGINS = ['https://asongoficeandfire.vercel.app'];
 
 function isAllowedOrigin(origin: string) {
   if (CONFIGURED.length > 0) return CONFIGURED.includes(origin);

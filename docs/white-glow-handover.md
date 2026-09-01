@@ -62,7 +62,7 @@ split. They just were not this.
 ## Symptom
 
 A soft-edged white radial glow (an oval, roughly 800-1000px wide, centered
-around the hero content) appears over `song-of-ice-and-fire-3l4u.vercel.app`'s
+around the hero content) appears over `https://asongoficeandfire.vercel.app.vercel.app`'s
 homepage (and other pages) once the ambient-creatures iframe is present.
 Text underneath it also reads as blurred, not just brightened.
 
@@ -76,7 +76,7 @@ rendering:
 const { chromium } = require('playwright-core'); // npm i --no-save playwright-core
 const browser = await chromium.launch({ channel: 'chrome', headless: false }); // headless: false is required
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-await page.goto('https://song-of-ice-and-fire-3l4u.vercel.app/');
+await page.goto('https://https://asongoficeandfire.vercel.app.vercel.app/');
 // click "SKIP INTRO" if present, wait ~3-4s, screenshot
 ```
 
@@ -108,7 +108,7 @@ Confirmed GPU backend on the machine this was investigated on:
   — built a bare dark-background HTML page (both via `file://` and via a real
   local HTTP server) with just `<iframe src="https://song-of-ice-and-fire-fe-
   animation.vercel.app">`. **Never reproduces**, regardless of protocol. Only
-  the real, full `song-of-ice-and-fire-3l4u.vercel.app` page triggers it.
+  the real, full `https://asongoficeandfire.vercel.app.vercel.app` page triggers it.
 - **Hiding the iframe** (`iframe.style.display = 'none'`) makes the glow
   disappear completely and the hero renders perfectly crisp — so it's
   unambiguously coming from the iframe's presence, not a pre-existing host
@@ -150,7 +150,7 @@ specific to the real host page that no minimal test page reproduces. This is
 genuinely at the point where scripted browser automation has diminishing
 returns; it needs a human (or an agent with real interactive DevTools access)
 to open the actual **Layers** panel (Chrome menu → More Tools → Layers, or
-`Cmd+Shift+P` → "Show Layers") on `song-of-ice-and-fire-3l4u.vercel.app` with
+`Cmd+Shift+P` → "Show Layers") on `https://asongoficeandfire.vercel.app.vercel.app` with
 the iframe present, find the compositing layer at the hero's screen position,
 and read its actual compositing reasons directly — a `LayerTree.enable` CDP
 scripted attempt during this investigation returned zero layers, so scripted

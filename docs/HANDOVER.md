@@ -64,7 +64,7 @@ split. They just were not this.
 Two repos:
 
 - **`song-of-ice-and-fire-fe`** — the main ASOIAF fan site (Next.js 16, App
-  Router). Deployed at `https://song-of-ice-and-fire-3l4u.vercel.app`.
+  Router). Deployed at `https://https://asongoficeandfire.vercel.app.vercel.app`.
 - **`song-of-ice-and-fire-fe-animation`** — a standalone Next.js app whose
   only job is rendering an ambient 3D creature layer (crow, dragon, rats;
   `three.js` + `@react-three/fiber`, GLTF models). Deployed at
@@ -107,7 +107,7 @@ at least real-GPU, browser window) to see it at all.
 const { chromium } = require('playwright-core'); // npm i --no-save playwright-core
 const browser = await chromium.launch({ channel: 'chrome', headless: false });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-await page.goto('https://song-of-ice-and-fire-3l4u.vercel.app/');
+await page.goto('https://https://asongoficeandfire.vercel.app.vercel.app/');
 // Click "SKIP INTRO" if present (first-visit intro animation), wait ~4s, screenshot.
 ```
 
