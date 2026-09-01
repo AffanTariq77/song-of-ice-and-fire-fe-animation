@@ -1,25 +1,30 @@
 /**
- * Receives pointer activity from the embedding page.
+ * Receives clicks from the embedding page.
  *
  * The creature iframes are `pointer-events: none` and must stay that way: they are
  * full-viewport and would otherwise swallow every click on the site. So the host
- * listens for pointer activity itself and forwards it here, normalised to 0..1
- * within the iframe's own box, which means the same protocol works for the
- * full-viewport crow layer and the short footer rats strip without either side
- * knowing the other's geometry.
+ * listens itself and forwards, normalised to 0..1 within the iframe's own box, which
+ * means the same protocol works for the crow layer and the short footer rats strip
+ * without either side knowing the other's geometry.
+ *
+ * Clicks only. There used to be a `pointer` stream as well, forwarded once a frame so
+ * the creatures could react to the cursor passing over them, and the rats bolted on
+ * hover. That is gone by request: a rat should not flee because the cursor happened to
+ * cross the footer on its way somewhere else. Losing it also removes a cross-document
+ * message every frame on every page, and a per-frame hit test against every creature,
+ * both of which were running whether or not anything was near a creature.
+ *
+ * A host still sending `pointer` or `leave` is harmless: unknown message types fail
+ * validation and are dropped.
  */
 
-export type AmbientPointerMessage =
-  | { source: 'asoiaf-ambient'; v: 1; type: 'pointer'; x: number; y: number }
-  | { source: 'asoiaf-ambient'; v: 1; type: 'click'; x: number; y: number }
-  | { source: 'asoiaf-ambient'; v: 1; type: 'leave' };
+export type AmbientPointerMessage = { source: 'asoiaf-ambient'; v: 1; type: 'click'; x: number; y: number };
 
 /** Mutable, read every frame by <Interactions />. Deliberately not React state. */
 export const pointerState = {
-  /** Normalised device coordinates, -1..1, y up. Only meaningful while `inside`. */
+  /** Where the last click landed, in normalised device coordinates, -1..1, y up. */
   ndcX: 0,
   ndcY: 0,
-  inside: false,
   /** Increments on each click. Consumers compare against their own last-seen value. */
   clickSeq: 0,
 };
@@ -50,8 +55,7 @@ function isPointerMessage(data: unknown): data is AmbientPointerMessage {
   if (typeof data !== 'object' || data === null) return false;
   const m = data as Record<string, unknown>;
   if (m.source !== 'asoiaf-ambient' || m.v !== 1) return false;
-  if (m.type === 'leave') return true;
-  if (m.type !== 'pointer' && m.type !== 'click') return false;
+  if (m.type !== 'click') return false;
   return typeof m.x === 'number' && typeof m.y === 'number' && Number.isFinite(m.x) && Number.isFinite(m.y);
 }
 
@@ -59,20 +63,14 @@ function onMessage(event: MessageEvent) {
   if (!isAllowedOrigin(event.origin)) return;
   if (!isPointerMessage(event.data)) return;
 
-  if (event.data.type === 'leave') {
-    pointerState.inside = false;
-    return;
-  }
-
   pointerState.ndcX = event.data.x * 2 - 1;
   pointerState.ndcY = -(event.data.y * 2 - 1);
-  pointerState.inside = true;
-  if (event.data.type === 'click') pointerState.clickSeq += 1;
+  pointerState.clickSeq += 1;
 }
 
 let started = false;
 
-/** Idempotent; safe to call from every scene that wants pointer reactions. */
+/** Idempotent; safe to call from every scene that wants click reactions. */
 export function startPointerBridge() {
   if (started || typeof window === 'undefined') return;
   started = true;

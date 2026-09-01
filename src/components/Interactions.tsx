@@ -8,8 +8,7 @@ import { pointerState, startPointerBridge } from '@/lib/pointer-bridge';
 type TargetEntry = {
   objectRef: { current: THREE.Object3D | null };
   radius: number;
-  onHover?: () => void;
-  onClick?: () => void;
+  onClick: () => void;
 };
 
 /**
@@ -21,23 +20,21 @@ type TargetEntry = {
 const targets = new Set<TargetEntry>();
 
 /**
- * Registers a creature as pointer-interactive. Callbacks are read through a ref, so
- * they do not need to be referentially stable at the call site.
+ * Registers a creature as clickable. The callback is read through a ref, so it does not
+ * need to be referentially stable at the call site.
  */
 export function useInteractive(opts: {
   objectRef: { current: THREE.Object3D | null };
   radius: number;
-  onHover?: () => void;
-  onClick?: () => void;
+  onClick: () => void;
 }) {
-  const entry = useRef<TargetEntry>({ objectRef: opts.objectRef, radius: opts.radius });
+  const entry = useRef<TargetEntry>({ objectRef: opts.objectRef, radius: opts.radius, onClick: opts.onClick });
 
   // Refreshed after every render rather than during it, so the frame loop always sees
   // the latest callbacks without the caller having to memoise them.
   useEffect(() => {
     entry.current.objectRef = opts.objectRef;
     entry.current.radius = opts.radius;
-    entry.current.onHover = opts.onHover;
     entry.current.onClick = opts.onClick;
   });
 
@@ -53,8 +50,8 @@ export function useInteractive(opts: {
 const worldPos = new THREE.Vector3();
 
 /**
- * Hit-tests the host's forwarded pointer against every registered creature, once per
- * frame. Mount inside a <Canvas>.
+ * Hit-tests the host's forwarded click against every registered creature. Mount inside
+ * a <Canvas>.
  *
  * This is a screen-space ellipse test rather than a THREE.Raycaster pass. Raycasting
  * these models means testing skinned, animated meshes every frame for a target that is
@@ -64,7 +61,6 @@ const worldPos = new THREE.Vector3();
  */
 export function Interactions() {
   const { viewport, camera } = useThree();
-  const hovered = useRef<TargetEntry | null>(null);
   const lastClickSeq = useRef(pointerState.clickSeq);
 
   useEffect(() => {
@@ -72,13 +68,11 @@ export function Interactions() {
   }, []);
 
   useFrame(() => {
-    const clicked = pointerState.clickSeq !== lastClickSeq.current;
-    if (clicked) lastClickSeq.current = pointerState.clickSeq;
-
-    if (!pointerState.inside) {
-      hovered.current = null;
-      return;
-    }
+    // Nothing to do on a frame with no new click, which is all but a handful of them.
+    // The previous version hit-tested every creature every frame against a forwarded
+    // cursor position; this one does nothing at all until someone actually clicks.
+    if (pointerState.clickSeq === lastClickSeq.current) return;
+    lastClickSeq.current = pointerState.clickSeq;
 
     // The camera is a fixed perspective one and the creatures all sit near z = 0, so
     // NDC-per-world-unit is constant across the plane and needs no per-target projection.
@@ -101,11 +95,7 @@ export function Interactions() {
       }
     }
 
-    if (best !== hovered.current) {
-      hovered.current = best;
-      best?.onHover?.();
-    }
-    if (clicked && best) best.onClick?.();
+    best?.onClick();
   });
 
   return null;

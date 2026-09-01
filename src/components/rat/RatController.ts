@@ -212,8 +212,8 @@ export class RatController {
   }
 
   /**
-   * Startle. `fleeDirection` is decided by the caller, which is the only thing that
-   * knows where this rat is relative to the edges of the strip.
+   * Startle, on being clicked. `fleeDirection` is decided by the caller, which is the
+   * only thing that knows where this rat is relative to the edges of the strip.
    */
   startle(fleeDirection: 1 | -1) {
     if (this.mode === 'flee' || this.mode === 'startle') return;

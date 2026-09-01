@@ -64,8 +64,12 @@ function RatModel({
 
   useInteractive({
     objectRef: group,
+    // Generous: the animal is forty pixels tall and moving, and the click is coming
+    // through a layer that takes no pointer events of its own, so there is no cursor
+    // change to aim by. The radius is the model's own width, which lands the hit
+    // anywhere on the rat and a little around it, without spilling into its neighbour.
     radius: hitRadius ?? Math.max((gltf?.width ?? 1) * scale, 0.3),
-    onHover: () => {
+    onClick: () => {
       const rat = controller.current;
       if (!rat || rat.fleeing) return;
       rat.startle(fleeDirection(rat.x, viewport.width / 2, rat.direction));
