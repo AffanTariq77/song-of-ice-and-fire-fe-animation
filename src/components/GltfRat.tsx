@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useInteractive } from './Interactions';
 import { RatController, fleeDirection } from './rat/RatController';
+import { FAR_Z, NEAR_Z, spread } from './corridor/layout';
 import { instantiate, type LoadedModel } from '@/lib/gltf-cache';
 
 export type GltfRatProps = {
@@ -23,9 +24,24 @@ export type GltfRatProps = {
   scale?: number;
   /** Chance (0-1) this crossing includes a stop to sniff at something. */
   sniffChance?: number;
+  /**
+   * Where across the walkway this one runs, 0 at the front lip and 1 against the wall.
+   *
+   * This is how the colony stops reading as a rank of identical animals on one line.
+   * Scattering them by raising or lowering `y` would lift them off the floor; moving
+   * them back and forth across it is free, because the walkway is flat, and
+   * perspective then does the rest: a rat further back sits higher in the frame, draws
+   * smaller, and takes longer to cross. Which is what a scattering of real animals on
+   * a real ledge looks like.
+   */
+  lane?: number;
   /** Pointer hit radius in world units. Defaults to the rat's own on-screen width. */
   hitRadius?: number;
 };
+
+/** The band of the walkway the rats use, kept clear of the front lip and the back kerb. */
+const LANE_NEAR = NEAR_Z - 0.5;
+const LANE_FAR = FAR_Z + 0.9;
 
 function randomBetween(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -54,13 +70,20 @@ function RatModel({
   direction,
   scale = 1,
   sniffChance = 0.5,
+  lane = 0.45,
   hitRadius,
   onDone,
 }: GltfRatProps & { onDone: (bolted: boolean) => void }) {
   const group = useRef<THREE.Group>(null);
   const gltf = useLoadedGltf('/models/rat.glb');
   const controller = useRef<RatController | null>(null);
-  const { viewport } = useThree();
+  const { viewport, camera } = useThree();
+
+  const laneZ = LANE_NEAR + (LANE_FAR - LANE_NEAR) * Math.min(1, Math.max(0, lane));
+  // Everything set back from z = 0 covers less of the frame than its own width
+  // suggests, and `viewport` is measured at z = 0. A rat in a far lane therefore has
+  // further to travel to cross the same screen, and its flee bands sit further out.
+  const laneSpread = spread(camera.position.z, laneZ);
 
   useInteractive({
     objectRef: group,
@@ -72,7 +95,7 @@ function RatModel({
     onClick: () => {
       const rat = controller.current;
       if (!rat || rat.fleeing) return;
-      rat.startle(fleeDirection(rat.x, viewport.width / 2, rat.direction));
+      rat.startle(fleeDirection(rat.x, (viewport.width * laneSpread) / 2, rat.direction));
     },
   });
 
@@ -112,8 +135,9 @@ function RatModel({
     const rat = controller.current;
     if (!gltf || !group.current || !rat) return;
 
-    // Far enough off screen that neither entry nor exit is ever seen.
-    const edge = viewport.width * 0.62 + gltf.width * scale;
+    // Far enough off screen that neither entry nor exit is ever seen, widened for the
+    // lane's depth so a rat at the back still leaves the frame rather than stopping in it.
+    const edge = viewport.width * laneSpread * 0.62 + gltf.width * scale;
     if (!placed.current) {
       rat.x = -direction * edge;
       placed.current = true;
@@ -121,7 +145,13 @@ function RatModel({
 
     rat.update(delta, edge * 2);
 
-    group.current.position.set(rat.x, viewport.height / 2 - y * viewport.height + gltf.groundOffset * scale, 0);
+    // The walkway is flat, so its surface is the same world height at every depth: the
+    // ground line does not change with the lane, only the apparent one does.
+    group.current.position.set(
+      rat.x,
+      viewport.height / 2 - y * viewport.height + gltf.groundOffset * scale,
+      laneZ,
+    );
     group.current.rotation.y = rat.yaw;
 
     if (Math.abs(rat.x) > edge && Math.sign(rat.velocity) === Math.sign(rat.x)) {

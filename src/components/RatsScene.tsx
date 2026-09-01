@@ -70,13 +70,19 @@ export default function RatsScene() {
         {/* Pace is a multiple of the speed the run clip was authored at, so a rat set
             to 1 gallops at exactly the cadence the animator drew and its feet do not
             slide. A third of that lands in the walk clip instead, which is how one of
-            these ambles across while the rest scurry. */}
-        <GltfRat y={LEDGE_Y} pace={0.86} minDelay={2} maxDelay={13} direction={1} scale={0.5} />
-        <GltfRat y={LEDGE_Y} pace={0.34} minDelay={6} maxDelay={22} direction={-1} scale={0.44} sniffChance={0.85} />
-        <GltfRat y={LEDGE_Y} pace={0.95} minDelay={1} maxDelay={11} direction={1} scale={0.56} sniffChance={0.25} />
-        <GltfRat y={LEDGE_Y} pace={0.72} minDelay={5} maxDelay={18} direction={-1} scale={0.58} />
-        <GltfRat y={LEDGE_Y} pace={0.4} minDelay={4} maxDelay={16} direction={1} scale={0.4} sniffChance={0.7} />
-        <GltfRat y={LEDGE_Y} pace={0.8} minDelay={8} maxDelay={24} direction={-1} scale={0.47} />
+            these ambles across while the rest scurry.
+
+            `lane` is where each one runs across the walkway, 0 at the front lip and 1
+            against the wall. They are deliberately spread and paired off rather than
+            evenly spaced: six animals on one line reads as a row of icons, and six on
+            six neat lanes reads as a chart. Depth also sets how big each draws and how
+            long it takes to cross, so the near ones are the big slow-looking ones. */}
+        <GltfRat y={LEDGE_Y} lane={0.08} pace={0.86} minDelay={2} maxDelay={13} direction={1} scale={0.5} />
+        <GltfRat y={LEDGE_Y} lane={0.74} pace={0.34} minDelay={6} maxDelay={22} direction={-1} scale={0.44} sniffChance={0.85} />
+        <GltfRat y={LEDGE_Y} lane={0.21} pace={0.95} minDelay={1} maxDelay={11} direction={1} scale={0.56} sniffChance={0.25} />
+        <GltfRat y={LEDGE_Y} lane={0.63} pace={0.72} minDelay={5} maxDelay={18} direction={-1} scale={0.58} />
+        <GltfRat y={LEDGE_Y} lane={0.9} pace={0.4} minDelay={4} maxDelay={16} direction={1} scale={0.4} sniffChance={0.7} />
+        <GltfRat y={LEDGE_Y} lane={0.42} pace={0.8} minDelay={8} maxDelay={24} direction={-1} scale={0.47} />
       </Canvas>
     </div>
   );
