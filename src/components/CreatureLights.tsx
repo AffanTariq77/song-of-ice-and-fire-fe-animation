@@ -24,16 +24,29 @@
  * real torches doing the modelling already, and a directional light strong enough to
  * pick out a crow's wing turns a large flat stone ledge into a pale blue slab.
  */
-export function CreatureLights({ rim = 10, ambient = 1.3 }: { rim?: number; ambient?: number } = {}) {
+export function CreatureLights({
+  rim = 10,
+  ambient = 1.3,
+  keyLight = 1.7,
+  bounce = 0.85,
+  creatureLayer = 0,
+}: { rim?: number; ambient?: number; keyLight?: number; bounce?: number; creatureLayer?: number } = {}) {
+  // The cool lights can be confined to a layer, so they reach the animals and nothing
+  // else. In the footer that is the difference between a corridor and a corridor with
+  // a blue stripe down every pier: the rim comes from behind and to one side, which is
+  // exactly the angle a pier's return face presents, so the one surface in the scene it
+  // lights properly is the one it should not touch at all. Only the creatures opt into
+  // the layer (see GltfRat), so a scene that leaves this at 0 is unaffected.
+  const mask = 1 << creatureLayer;
   return (
     <>
       <ambientLight intensity={ambient} />
       {/* Key: warm torchlight, matching the site's gold. */}
-      <directionalLight position={[3, 5, 4]} intensity={1.7} color="#f2c14d" />
+      <directionalLight position={[3, 5, 4]} intensity={keyLight} color="#f2c14d" />
       {/* Rim: cool, from behind and above, doing the separation work. */}
-      <directionalLight position={[-5, 4, -7]} intensity={rim} color="#9db4cf" />
+      <directionalLight position={[-5, 4, -7]} intensity={rim} color="#9db4cf" layers-mask={mask} />
       {/* Bounce: a faint cold fill so undersides are not pure black. */}
-      <directionalLight position={[0, -4, 3]} intensity={0.85} color="#3a5170" />
+      <directionalLight position={[0, -4, 3]} intensity={bounce} color="#3a5170" layers-mask={mask} />
     </>
   );
 }
